@@ -1,0 +1,54 @@
+address = "Toronto, ON"
+
+geolocator = Nominatim(user_agent="toronto_explorer")
+location = geolocator.geocode(address)
+latitude = location.latitude
+longitude = location.longitude
+print('The geograpical coordinate of Toronto city are {}, {}.'.format(latitude, longitude))
+
+# create map of Toronto using latitude and longitude values
+map_toronto = folium.Map(location=[latitude, longitude], zoom_start=10)
+map_toronto
+
+for lat, lng, borough, neighborhood in zip(
+        df_toronto['Latitude'], 
+        df_toronto['Longitude'], 
+        df_toronto['Borough'], 
+        df_toronto['Neighborhood']):
+    label = '{}, {}'.format(neighborhood, borough)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=5,
+        popup=label,
+        color='blue',
+        fill=True,
+        fill_color='#3186cc',
+        fill_opacity=0.7,
+        parse_html=False).add_to(map_toronto)  
+
+map_toronto
+
+# "denc" = [D]owntown Toronto, [E]ast Toronto, [N]orth Toronto, [C]entral Toronto
+df_toronto_denc = df_toronto[df_toronto['Borough'].str.contains("Toronto")].reset_index(drop=True)
+df_toronto_denc.head()
+
+for lat, lng, borough, neighborhood in zip(
+        df_toronto_denc['Latitude'], 
+        df_toronto_denc['Longitude'], 
+        df_toronto_denc['Borough'], 
+        df_toronto_denc['Neighborhood']):
+    label = '{}, {}'.format(neighborhood, borough)
+    label = folium.Popup(label, parse_html=True)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=5,
+        popup=label,
+        color='blue',
+        fill=True,
+        fill_color='#3186cc',
+        fill_opacity=0.7,
+        parse_html=False).add_to(map_toronto_denc)  
+
+map_toronto_denc
+

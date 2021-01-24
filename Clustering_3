@@ -1,0 +1,123 @@
+neighborhood_name = df_toronto_denc.loc[0, 'Neighborhood']
+print(f"The first neighborhood's name is '{neighborhood_name}'.")
+
+neighborhood_latitude = df_toronto_denc.loc[0, 'Latitude'] # neighborhood latitude value
+neighborhood_longitude = df_toronto_denc.loc[0, 'Longitude'] # neighborhood longitude value
+
+print('Latitude and longitude values of {} are {}, {}.'.format(neighborhood_name, 
+                                                               neighborhood_latitude, 
+                                                               neighborhood_longitude))
+                                                               
+LIMIT = 100 # limit of number of venues returned by Foursquare API
+radius = 500 # define radius
+url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit={}'.format(
+    CLIENT_ID, 
+    CLIENT_SECRET, 
+    VERSION, 
+    neighborhood_latitude, 
+    neighborhood_longitude, 
+    radius, 
+    LIMIT)
+
+# get the result to a json file
+results = requests.get(url).json()
+
+def get_category_type(row):
+    try:
+        categories_list = row['categories']
+    except:
+        categories_list = row['venue.categories']
+        
+    if len(categories_list) == 0:
+        return None
+    else:
+        return categories_list[0]['name']
+        
+venues = results['response']['groups'][0]['items']
+nearby_venues = json_normalize(venues) # flatten JSON
+
+# filter columns
+filtered_columns = ['venue.name', 'venue.categories', 'venue.location.lat', 'venue.location.lng']
+nearby_venues =nearby_venues.loc[:, filtered_columns]
+
+# filter the category for each row
+nearby_venues['venue.categories'] = nearby_venues.apply(get_category_type, axis=1)
+
+# clean columns
+nearby_venues.columns = [col.split(".")[-1] for col in nearby_venues.columns]
+
+nearby_venues
+
+def getNearbyVenues(names, latitudes, longitudes, radius=500):
+    venues_list=[]
+    
+    for name, lat, lng in zip(names, latitudes, longitudes):
+        # print(name)
+            
+        # create the API request URL
+        url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit={}'.format(
+            CLIENT_ID, 
+            CLIENT_SECRET, 
+            VERSION, 
+            lat, 
+            lng, 
+            radius, 
+            LIMIT)
+            
+        # make the GET request
+        results = requests.get(url).json()["response"]['groups'][0]['items']
+        
+        # return only relevant information for each nearby venue
+        venues_list.append([(
+            name, 
+            lat, 
+            lng, 
+            v['venue']['name'], 
+            v['venue']['location']['lat'], 
+            v['venue']['location']['lng'],  
+            v['venue']['categories'][0]['name']) for v in results])
+
+    nearby_venues = pd.DataFrame([item for venue_list in venues_list for item in venue_list])
+    nearby_venues.columns = ['Neighborhood', 
+                  'Neighborhood Latitude', 
+                  'Neighborhood Longitude', 
+                  'Venue', 
+                  'Venue Latitude', 
+                  'Venue Longitude', 
+                  'Venue Category']
+    
+    return(nearby_venues)
+    
+    
+    toronto_denc_venues = getNearbyVenues(names=df_toronto_denc['Neighborhood'],
+                                   latitudes=df_toronto_denc['Latitude'],
+                                   longitudes=df_toronto_denc['Longitude']
+                                  )# one hot encoding
+toronto_denc_onehot = pd.get_dummies(toronto_denc_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add neighborhood column back to dataframe
+toronto_denc_onehot['Neighborhood'] = toronto_denc_venues['Neighborhood'] 
+
+# move neighborhood column to the first column
+fixed_columns = [toronto_denc_onehot.columns[-1]] + list(toronto_denc_onehot.columns[:-1])
+toronto_denc_onehot = toronto_denc_onehot[fixed_columns]
+
+toronto_denc_onehot.head()
+                                  
+toronto_denc_venues.head()
+
+toronto_denc_venues.groupby('Neighborhood').count()
+
+print('There are {} uniques categories.'.format(len(toronto_denc_venues['Venue Category'].unique())))
+
+# one hot encoding
+toronto_denc_onehot = pd.get_dummies(toronto_denc_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add neighborhood column back to dataframe
+toronto_denc_onehot['Neighborhood'] = toronto_denc_venues['Neighborhood'] 
+
+# move neighborhood column to the first column
+fixed_columns = [toronto_denc_onehot.columns[-1]] + list(toronto_denc_onehot.columns[:-1])
+toronto_denc_onehot = toronto_denc_onehot[fixed_columns]
+
+toronto_denc_onehot.head()
